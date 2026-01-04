@@ -178,6 +178,7 @@ class _MapState extends State<AMapWidget> {
     final Map<String, dynamic> creationParams = <String, dynamic>{
       'privacyStatement': AMapInitializer._privacyStatement?.toMap(),
       'apiKey': AMapInitializer._apiKey?.toMap(),
+      'terrainEnabled': AMapInitializer._terrainEnabled,
       'initialCameraPosition': widget.initialCameraPosition.toMap(),
       'options': _mapOptions.toMap(),
       'markersToAdd': serializeOverlaySet(widget.markers),

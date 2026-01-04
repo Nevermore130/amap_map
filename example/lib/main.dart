@@ -51,7 +51,7 @@ class _AMapDemoState extends State<AMapDemo>
 
   @override
   Widget build(BuildContext context) {
-    AMapInitializer.init(context, apiKey: ConstConfig.amapApiKeys);
+    AMapInitializer.init(context, apiKey: ConstConfig.amapApiKeys,terrainEnabled: false);
     AMapInitializer.updatePrivacyAgree(ConstConfig.amapPrivacyStatement);
     return Scaffold(
       appBar: AppBar(title: const Text('高德地图示例')),

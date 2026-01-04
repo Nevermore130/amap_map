@@ -25,7 +25,10 @@ public class MapsInitializerController implements MyMethodCallHandler {
     public void doMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
         switch (call.method) {
             case Const.METHOD_SET_TERRAIN_ENABLE:
-                MapsInitializer.setTerrainEnable(call.argument(""));
+                Boolean enabled = call.argument("enabled");
+                if (enabled != null) {
+                    MapsInitializer.setTerrainEnable(enabled);
+                }
                 result.success(null);
                 break;
             default:

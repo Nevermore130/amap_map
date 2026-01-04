@@ -4,6 +4,7 @@ import android.content.Context;
 
 import androidx.lifecycle.LifecycleOwner;
 
+import com.amap.api.maps.MapsInitializer;
 import com.amap.api.maps.model.CameraPosition;
 import com.amap.flutter.map.utils.ConvertUtil;
 import com.amap.flutter.map.utils.LogUtil;
@@ -43,6 +44,14 @@ class AMapPlatformViewFactory extends PlatformViewFactory {
             LogUtil.i(CLASS_NAME, "create params==>" + params);
             if (params.containsKey("privacyStatement")) {
                 ConvertUtil.setPrivacyStatement(context, params.get("privacyStatement"));
+            }
+
+            // 在地图创建前设置地形图开关（需在地图创建前设置）
+            if (params.containsKey("terrainEnabled")) {
+                Object terrainEnabled = params.get("terrainEnabled");
+                if (terrainEnabled instanceof Boolean) {
+                    MapsInitializer.setTerrainEnable((Boolean) terrainEnabled);
+                }
             }
 
             Object options = ((Map<String, Object>) args).get("options");

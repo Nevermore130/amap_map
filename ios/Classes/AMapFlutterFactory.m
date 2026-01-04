@@ -28,6 +28,15 @@
 - (NSObject<FlutterPlatformView>*)createWithFrame:(CGRect)frame
                                    viewIdentifier:(int64_t)viewId
                                         arguments:(id _Nullable)args {
+    // 在地图创建前设置地形图开关（since 8.2.0）
+    if ([args isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *dict = args;
+        NSNumber *terrainEnabled = dict[@"terrainEnabled"];
+        if (terrainEnabled != nil && [terrainEnabled isKindOfClass:[NSNumber class]]) {
+            [MAMapView setTerrainEnabled:[terrainEnabled boolValue]];
+        }
+    }
+
     return [[AMapViewController alloc] initWithFrame:frame
                                       viewIdentifier:viewId
                                            arguments:args

@@ -17,6 +17,7 @@ part of '../amap_map.dart';
 class AMapInitializer {
   static AMapApiKey? _apiKey;
   static AMapPrivacyStatement? _privacyStatement;
+  static bool _terrainEnabled = false;
 
   AMapInitializer._();
 
@@ -24,10 +25,18 @@ class AMapInitializer {
   ///
   /// @param context 用于图片资源适配屏幕密度，需在[AMapWidget]使用前调用[init]方法
   /// @param apiKey 申请的 AMapSDK Key，如果熟悉原生侧集成配置，可以参考高德文档集成，可选
+  /// @param terrainEnabled 是否打开地形图，默认NO. 注意：需在地图创建前设置 （since 8.2.0）
   ///
-  static void init(BuildContext context, {AMapApiKey? apiKey}) {
+  static void init(BuildContext context, {AMapApiKey? apiKey, bool terrainEnabled = false}) {
     AMapUtil.init(context);
     _apiKey = apiKey;
+    _terrainEnabled = terrainEnabled;
+  }
+
+  /// 设置是否打开地形图
+  /// 注意：需在地图创建前设置 （since 8.2.0）
+  static void setTerrainEnabled(bool enabled) {
+    _terrainEnabled = enabled;
   }
 
   /// 在app首次启动时必须传入高德合规声明配置[privacyStatement],后续如果没有变化不需要重复设置
