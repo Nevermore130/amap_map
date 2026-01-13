@@ -13,25 +13,21 @@ abstract class BaseInfoWindowAdapter implements InfoWindowAdapter {
   @override
   Widget? getInfoWindow(BuildContext context, Marker marker) {
     final Widget? contentView = buildInfoWindowContent(context, marker);
-    return (contentView != null)
-        ? FutureBuilder<ScreenCoordinate>(
+    return FutureBuilder<ScreenCoordinate>(
             future: controller?.toScreenCoordinate(marker.position),
             builder: (BuildContext context,
                 AsyncSnapshot<ScreenCoordinate> snapshot) {
               if (snapshot.hasData) {
-                double devicePixelRatio =
-                    MediaQuery.of(context).devicePixelRatio;
                 return Positioned(
-                  left: snapshot.data!.x.toDouble() / devicePixelRatio,
-                  top: snapshot.data!.y.toDouble() / devicePixelRatio,
-                  child: contentView,
+                  left: snapshot.data!.x.toDouble() - 35 ,
+                  top: snapshot.data!.y.toDouble() -65 ,
+                  child: contentView ?? Container(),
                 );
               } else {
                 return Container();
               }
             },
-          )
-        : null;
+          );
   }
 
   Widget? buildInfoWindowContent(BuildContext context, Marker marker);
