@@ -19,8 +19,8 @@ abstract class BaseInfoWindowAdapter implements InfoWindowAdapter {
                 AsyncSnapshot<ScreenCoordinate> snapshot) {
               if (snapshot.hasData) {
                 return Positioned(
-                  left: snapshot.data!.x.toDouble() - 35 ,
-                  top: snapshot.data!.y.toDouble() -65 ,
+                  left: snapshot.data!.x.toDouble() - 23 ,
+                  top: snapshot.data!.y.toDouble() -70 ,
                   child: contentView ?? Container(),
                 );
               } else {
