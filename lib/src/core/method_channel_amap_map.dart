@@ -70,6 +70,13 @@ class MethodChannelAMapFlutterMap implements AMapFlutterPlatform {
     );
   }
 
+  /// 取消选中当前标记点，恢复原始大小
+  Future<void> deselectMarker({
+    required int mapId,
+  }) {
+    return channel(mapId).invokeMethod<void>('marker#deselect');
+  }
+
   /// 更新polyline的数据
   Future<void> updatePolylines(
     PolylineUpdates polylineUpdates, {

@@ -148,4 +148,9 @@ class AMapController {
   Future<String> getSatelliteImageApprovalNumber() {
     return _methodChannel.getSatelliteImageApprovalNumber(mapId: mapId);
   }
+
+  /// 取消选中当前标记点，恢复原始大小
+  Future<void> deselectMarker() {
+    return _methodChannel.deselectMarker(mapId: mapId);
+  }
 }

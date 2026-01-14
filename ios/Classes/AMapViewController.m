@@ -43,6 +43,9 @@
 
 @property (nonatomic,assign) MAMapRect initLimitMapRect;//初始化时，限制的地图范围；如果为{0,0,0,0},则没有限制
 
+@property (nonatomic,weak) MAAnnotationView *selectedAnnotationView; // 当前选中的标记点视图
+@property (nonatomic,assign) CGAffineTransform selectedViewOriginalTransform; // 选中视图的原始 transform
+
 @end
 
 
@@ -244,6 +247,11 @@
         CLLocationCoordinate2D coordinate = [weakSelf.mapView convertPoint:point toCoordinateFromView:weakSelf.mapView];
         result([AMapConvertUtil arrayFromLocation:coordinate]);
     }];
+    // 取消选中标记点，恢复原始大小
+    [self.channel addMethodName:@"marker#deselect" withHandler:^(FlutterMethodCall * _Nonnull call, FlutterResult  _Nonnull result) {
+        [weakSelf deselectCurrentMarker];
+        result(nil);
+    }];
 }
 
 //MARK: MAMapViewDelegate
@@ -388,7 +396,125 @@
     if (fAnno.markerId == nil) {
         return;
     }
+
+    // 点击放大动画效果
+    [self animateAnnotationView:view];
+
     [_markerController onMarkerTap:fAnno.markerId];
+}
+
+/**
+ * @brief 执行标注视图的点击动画（放大+多次弹跳）
+ * @param view 需要执行动画的标注视图
+ */
+- (void)animateAnnotationView:(MAAnnotationView *)view {
+    // 先取消之前选中的标记点
+    [self deselectCurrentMarkerWithoutAnimation];
+
+    // 保存原始位置和状态
+    CGPoint originalCenter = view.center;
+    CGAffineTransform originalTransform = view.transform;
+
+    // 记录当前选中的标记点和原始 transform
+    self.selectedAnnotationView = view;
+    self.selectedViewOriginalTransform = originalTransform;
+
+    // 先执行放大动画
+    [UIView animateWithDuration:0.4
+                          delay:0
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+        view.transform = CGAffineTransformScale(originalTransform, 1.4, 1.4);
+    }
+                     completion:^(BOOL finished) {
+        // 放大完成后开始多次弹跳
+        [self performBounceAnimationOnView:view
+                            originalCenter:originalCenter
+                               bounceIndex:0];
+    }];
+}
+
+/**
+ * @brief 取消选中当前标记点，恢复原始大小（带动画）
+ */
+- (void)deselectCurrentMarker {
+    if (self.selectedAnnotationView == nil) {
+        return;
+    }
+
+    MAAnnotationView *view = self.selectedAnnotationView;
+    CGAffineTransform originalTransform = self.selectedViewOriginalTransform;
+
+    // 清除选中状态
+    self.selectedAnnotationView = nil;
+
+    // 执行恢复动画
+    [UIView animateWithDuration:0.25
+                          delay:0
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+        view.transform = originalTransform;
+    }
+                     completion:nil];
+}
+
+/**
+ * @brief 取消选中当前标记点，立即恢复原始大小（无动画）
+ */
+- (void)deselectCurrentMarkerWithoutAnimation {
+    if (self.selectedAnnotationView == nil) {
+        return;
+    }
+
+    self.selectedAnnotationView.transform = self.selectedViewOriginalTransform;
+    self.selectedAnnotationView = nil;
+}
+
+/**
+ * @brief 执行多次弹跳动画（递归）
+ * @param view 标注视图
+ * @param originalCenter 原始中心点
+ * @param bounceIndex 当前弹跳次数索引
+ */
+- (void)performBounceAnimationOnView:(MAAnnotationView *)view
+                      originalCenter:(CGPoint)originalCenter
+                         bounceIndex:(NSInteger)bounceIndex {
+    // 弹跳参数：高度逐渐递减
+    CGFloat bounceHeights[] = {20.0, 12.0, 6.0};
+    NSTimeInterval upDurations[] = {0.25, 0.18, 0.12};
+    NSTimeInterval downDurations[] = {0.2, 0.15, 0.1};
+    NSInteger totalBounces = 3;
+
+    if (bounceIndex >= totalBounces) {
+        return;
+    }
+
+    CGFloat currentHeight = bounceHeights[bounceIndex];
+    NSTimeInterval upDuration = upDurations[bounceIndex];
+    NSTimeInterval downDuration = downDurations[bounceIndex];
+
+    // 向上跳跃
+    [UIView animateWithDuration:upDuration
+                          delay:0
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+        view.center = CGPointMake(originalCenter.x, originalCenter.y - currentHeight);
+    }
+                     completion:^(BOOL finished) {
+        // 落下
+        [UIView animateWithDuration:downDuration
+                              delay:0
+                            options:UIViewAnimationOptionCurveEaseIn
+                         animations:^{
+            view.center = originalCenter;
+        }
+                         completion:^(BOOL finished) {
+            // 继续下一次弹跳
+            [self performBounceAnimationOnView:view
+                                originalCenter:originalCenter
+                                   bounceIndex:bounceIndex + 1];
+        }];
+    }];
 }
 
 /**
