@@ -539,6 +539,38 @@ public class ConvertUtil {
         return data;
     }
 
+    /**
+     * 将物理像素 Point 转换为逻辑像素（dp）的 JSON Map
+     * 适配不同屏幕密度的 Android 设备
+     *
+     * @param point   物理像素坐标
+     * @param density 屏幕密度 (DisplayMetrics.density)
+     * @return 逻辑像素坐标的 Map（四舍五入为整数）
+     */
+    public static Map<String, Integer> pointToJsonWithDensity(Point point, float density) {
+        final Map<String, Integer> data = new HashMap<>(2);
+        data.put("x", Math.round(point.x / density));
+        data.put("y", Math.round(point.y / density));
+        return data;
+    }
+
+    /**
+     * 从 Map 解析逻辑像素（dp）并转换为物理像素 Point
+     * 适配不同屏幕密度的 Android 设备
+     *
+     * @param o       包含 x, y 的 Map 对象
+     * @param density 屏幕密度 (DisplayMetrics.density)
+     * @return 物理像素坐标的 Point
+     */
+    public static Point pointFromMapWithDensity(Object o, float density) {
+        Object x = toMap(o).get("x");
+        Object y = toMap(o).get("y");
+        // 将逻辑像素乘以密度转换为物理像素
+        int physicalX = (int) Math.round(((Number) x).doubleValue() * density);
+        int physicalY = (int) Math.round(((Number) y).doubleValue() * density);
+        return new Point(physicalX, physicalY);
+    }
+
     public static String toString(Object o) {
         return (String) o;
     }

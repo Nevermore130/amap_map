@@ -1,15 +1,6 @@
 package com.amap.flutter.map.overlays.marker;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.AnimatorSet;
-import android.animation.ObjectAnimator;
-import android.os.Handler;
-import android.os.Looper;
 import android.text.TextUtils;
-import android.view.View;
-import android.view.animation.AccelerateInterpolator;
-import android.view.animation.DecelerateInterpolator;
 
 import androidx.annotation.NonNull;
 
@@ -18,13 +9,14 @@ import com.amap.api.maps.model.LatLng;
 import com.amap.api.maps.model.Marker;
 import com.amap.api.maps.model.MarkerOptions;
 import com.amap.api.maps.model.Poi;
+import com.amap.api.maps.model.animation.Animation;
+import com.amap.api.maps.model.animation.ScaleAnimation;
 import com.amap.flutter.map.MyMethodCallHandler;
 import com.amap.flutter.map.overlays.AbstractOverlayController;
 import com.amap.flutter.map.utils.Const;
 import com.amap.flutter.map.utils.ConvertUtil;
 import com.amap.flutter.map.utils.LogUtil;
 
-import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,9 +39,7 @@ public class MarkersController
         AMap.OnPOIClickListener {
     private static final String CLASS_NAME = "MarkersController";
     private String selectedMarkerDartId;
-    private View selectedMarkerView; // 当前选中的标记点视图
-    private float selectedViewOriginalScaleX = 1.0f; // 选中视图的原始 scaleX
-    private float selectedViewOriginalScaleY = 1.0f; // 选中视图的原始 scaleY
+    private Marker selectedMarker; // 当前选中的标记点
 
     public MarkersController(MethodChannel methodChannel, AMap amap) {
         super(methodChannel, amap);
@@ -219,125 +209,44 @@ public class MarkersController
 
     /**
      * 执行 Marker 点击缩放动画
-     * 通过反射获取 Marker 内部的 View 并执行动画
+     * 使用高德地图原生 ScaleAnimation API
      *
      * @param marker 需要执行动画的 Marker
      */
     private void animateMarkerClick(final Marker marker) {
-        try {
-            // 尝试通过反射获取 Marker 内部的 View
-            Field field = marker.getClass().getDeclaredField("aq");
-            field.setAccessible(true);
-            Object glOverlayLayer = field.get(marker);
+        // 先取消之前选中的标记点动画
+        deselectCurrentMarker();
 
-            if (glOverlayLayer != null) {
-                Field viewField = glOverlayLayer.getClass().getDeclaredField("c");
-                viewField.setAccessible(true);
-                final View markerView = (View) viewField.get(glOverlayLayer);
+        // 记录当前选中的标记点
+        selectedMarker = marker;
 
-                if (markerView != null) {
-                    new Handler(Looper.getMainLooper()).post(new Runnable() {
-                        @Override
-                        public void run() {
-                            executeScaleAnimation(markerView);
-                        }
-                    });
-                    return;
-                }
-            }
-        } catch (Exception e) {
-            LogUtil.i(CLASS_NAME, "Reflection failed, using alternative animation: " + e.getMessage());
-        }
+        // 创建放大动画：从原始大小放大到 1.3 倍
+        ScaleAnimation scaleUp = new ScaleAnimation(1.0f, 1.3f, 1.0f, 1.3f);
+        scaleUp.setDuration(200);
+        scaleUp.setFillMode(Animation.FILL_MODE_FORWARDS); // 动画结束后保持放大状态
 
-        // 备用方案：使用透明度动画模拟点击反馈
-        executeAlphaAnimation(marker);
-    }
-
-    /**
-     * 执行 View 的放大+多次弹跳动画
-     *
-     * @param view 需要执行动画的 View
-     */
-    private void executeScaleAnimation(final View view) {
-        // 先取消之前选中的标记点（无动画）
-        deselectCurrentMarkerWithoutAnimation();
-
-        // 保存原始值
-        final float originalScaleX = view.getScaleX();
-        final float originalScaleY = view.getScaleY();
-        final float originalTranslationY = view.getTranslationY();
-
-        // 记录当前选中的标记点和原始缩放值
-        selectedMarkerView = view;
-        selectedViewOriginalScaleX = originalScaleX;
-        selectedViewOriginalScaleY = originalScaleY;
-
-        // 放大动画（保持放大状态，不回弹）
-        ObjectAnimator scaleUpX = ObjectAnimator.ofFloat(view, "scaleX", originalScaleX, originalScaleX * 1.4f);
-        ObjectAnimator scaleUpY = ObjectAnimator.ofFloat(view, "scaleY", originalScaleY, originalScaleY * 1.4f);
-        scaleUpX.setDuration(400);
-        scaleUpY.setDuration(400);
-        scaleUpX.setInterpolator(new DecelerateInterpolator());
-        scaleUpY.setInterpolator(new DecelerateInterpolator());
-
-        AnimatorSet scaleAnimator = new AnimatorSet();
-        scaleAnimator.playTogether(scaleUpX, scaleUpY);
-
-        // 放大完成后开始多次弹跳
-        scaleAnimator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                performBounceAnimation(view, originalTranslationY, 0);
-            }
-        });
-
-        scaleAnimator.start();
+        marker.setAnimation(scaleUp);
+        marker.startAnimation();
     }
 
     /**
      * 取消选中当前标记点，恢复原始大小（带动画）
      */
     private void deselectCurrentMarker() {
-        if (selectedMarkerView == null) {
+        if (selectedMarker == null) {
             return;
         }
 
-        final View view = selectedMarkerView;
-        final float targetScaleX = selectedViewOriginalScaleX;
-        final float targetScaleY = selectedViewOriginalScaleY;
+        final Marker marker = selectedMarker;
+        selectedMarker = null;
 
-        // 清除选中状态
-        selectedMarkerView = null;
+        // 恢复原始大小的动画
+        ScaleAnimation scaleDown = new ScaleAnimation(1.3f, 1.0f, 1.3f, 1.0f);
+        scaleDown.setDuration(150);
+        scaleDown.setFillMode(Animation.FILL_MODE_FORWARDS);
 
-        // 执行恢复动画
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
-            @Override
-            public void run() {
-                ObjectAnimator scaleDownX = ObjectAnimator.ofFloat(view, "scaleX", view.getScaleX(), targetScaleX);
-                ObjectAnimator scaleDownY = ObjectAnimator.ofFloat(view, "scaleY", view.getScaleY(), targetScaleY);
-                scaleDownX.setDuration(250);
-                scaleDownY.setDuration(250);
-                scaleDownX.setInterpolator(new DecelerateInterpolator());
-                scaleDownY.setInterpolator(new DecelerateInterpolator());
-
-                AnimatorSet animatorSet = new AnimatorSet();
-                animatorSet.playTogether(scaleDownX, scaleDownY);
-                animatorSet.start();
-            }
-        });
-    }
-
-    /**
-     * 取消选中当前标记点，立即恢复原始大小（无动画）
-     */
-    private void deselectCurrentMarkerWithoutAnimation() {
-        if (selectedMarkerView == null) {
-            return;
-        }
-
-        selectedMarkerView.setScaleX(selectedViewOriginalScaleX);
-        selectedMarkerView.setScaleY(selectedViewOriginalScaleY);
-        selectedMarkerView = null;
+        marker.setAnimation(scaleDown);
+        marker.startAnimation();
     }
 
     /**
@@ -364,92 +273,6 @@ public class MarkersController
             selectedMarkerDartId = markerId;
             LogUtil.i(CLASS_NAME, "selectMarkerWithId: selected marker id=" + markerId);
         }
-    }
-
-    /**
-     * 执行多次弹跳动画（递归）
-     *
-     * @param view 需要执行动画的 View
-     * @param originalY 原始 Y 位置
-     * @param bounceIndex 当前弹跳索引
-     */
-    private void performBounceAnimation(final View view, final float originalY, final int bounceIndex) {
-        // 弹跳参数：高度逐渐递减
-        final float[] bounceHeights = {50f, 24f, 12f};
-        final long[] upDurations = {250, 180, 120};
-        final long[] downDurations = {200, 150, 100};
-        final int totalBounces = 3;
-
-        if (bounceIndex >= totalBounces) {
-            return;
-        }
-
-        float currentHeight = bounceHeights[bounceIndex];
-        long upDuration = upDurations[bounceIndex];
-        long downDuration = downDurations[bounceIndex];
-
-        // 向上跳跃
-        ObjectAnimator jumpUp = ObjectAnimator.ofFloat(view, "translationY", originalY, originalY - currentHeight);
-        jumpUp.setDuration(upDuration);
-        jumpUp.setInterpolator(new DecelerateInterpolator());
-
-        // 落下
-        ObjectAnimator jumpDown = ObjectAnimator.ofFloat(view, "translationY", originalY - currentHeight, originalY);
-        jumpDown.setDuration(downDuration);
-        jumpDown.setInterpolator(new AccelerateInterpolator());
-
-        AnimatorSet bounceAnimator = new AnimatorSet();
-        bounceAnimator.playSequentially(jumpUp, jumpDown);
-
-        // 落下完成后继续下一次弹跳
-        bounceAnimator.addListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-                performBounceAnimation(view, originalY, bounceIndex + 1);
-            }
-        });
-
-        bounceAnimator.start();
-    }
-
-    /**
-     * 备用方案：执行透明度+位移动画模拟跳跃
-     *
-     * @param marker 需要执行动画的 Marker
-     */
-    private void executeAlphaAnimation(final Marker marker) {
-        // 高德地图 Marker 不支持直接设置位移，使用透明度变化作为点击反馈
-        final float originalAlpha = marker.getAlpha();
-        final Handler handler = new Handler(Looper.getMainLooper());
-
-        // 快速闪烁效果
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                marker.setAlpha(originalAlpha * 0.5f);
-            }
-        });
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                marker.setAlpha(originalAlpha);
-            }
-        }, 100);
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                marker.setAlpha(originalAlpha * 0.7f);
-            }
-        }, 200);
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                marker.setAlpha(originalAlpha);
-            }
-        }, 300);
     }
 
     @Override

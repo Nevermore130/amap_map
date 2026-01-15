@@ -130,10 +130,17 @@ public class MapController
             case Const.METHOD_MAP_TO_SCREEN_COORDINATE:
                 LatLng argLatLng = ConvertUtil.toLatLng(call.arguments);
                 Point resScreenLocation = amap.getProjection().toScreenLocation(argLatLng);
-                result.success(ConvertUtil.pointToJson(resScreenLocation));
+                // 获取屏幕密度，将物理像素转换为逻辑像素（dp）
+                float density = mapView.getContext().getResources().getDisplayMetrics().density;
+                Map<String, Integer> screenResult = ConvertUtil.pointToJsonWithDensity(resScreenLocation, density);
+                LogUtil.i(CLASS_NAME, "toScreenCoordinate: physical=" + resScreenLocation
+                    + ", density=" + density + ", logical=" + screenResult);
+                result.success(screenResult);
                 break;
             case Const.METHOD_MAP_FROM_SCREEN_COORDINATE:
-                Point argPoint = ConvertUtil.pointFromMap(call.arguments);
+                // 获取屏幕密度，将逻辑像素（dp）转换为物理像素
+                float densityFrom = mapView.getContext().getResources().getDisplayMetrics().density;
+                Point argPoint = ConvertUtil.pointFromMapWithDensity(call.arguments, densityFrom);
                 LatLng resLatLng = amap.getProjection().fromScreenLocation(argPoint);
                 result.success(ConvertUtil.latLngToList(resLatLng));
                 break;
